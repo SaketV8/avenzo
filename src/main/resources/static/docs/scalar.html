@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>API Reference</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Open API Documentation</title>
+    <link rel="icon" href="https://scalar.com/favicon.svg">
+    <link rel="icon alternate" type="image/png" href="https://scalar.com/favicon.png">
+</head>
+<body>
+<div id="app"></div>
+
+<!-- Load the Script -->
+<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+
+<!-- Initialize the API Reference -->
+<!--<script>
+    Scalar.createApiReference('#app', {
+        // The URL of the OpenAPI/Swagger document
+        url: '/docs/openapi.json',
+
+        // Avoid CORS issues
+        proxyUrl: 'https://proxy.scalar.com',
+
+        theme: 'deepSpace',
+
+        layout: 'modern',
+
+        hideClientButton: true,
+
+        defaultOpenFirstTag: false,
+
+    })
+</script>-->
+
+<script type="module">
+    const JwtPlugin = ({
+                           loginEndpoint = "/api/v1/auth/login",
+                           tokenField = "jwt",
+                           storageKey = "jwt",
+                       } = {}) => () => ({
+
+        name: "jwt-auth-plugin",
+
+        extensions: [],
+
+        apiClientPlugins: [
+            {
+                hooks: {
+
+                    beforeRequest({ requestBuilder }) {
+                        // Tell Scalar to skip its default security handling
+                        // requestBuilder.options.disableSecurity = true
+                        console.log("🍃 Request Interceptor")
+                        const token = localStorage.getItem(storageKey);
+
+                        if (!token) return;
+
+                        requestBuilder.headers.set(
+                            "Authorization",
+                            `Bearer ${token}`
+                        );
+                    },
+
+                    async responseReceived({ response }) {
+                        console.log("🍃 Response Interceptor")
+                        try {
+                            if (
+                                !response.ok ||
+                                !response.url.endsWith(loginEndpoint)
+                            ) {
+                                return;
+                            }
+
+                            const body = await response.clone().json();
+
+                            const token = body[tokenField];
+
+                            if (!token) return;
+
+                            localStorage.setItem(storageKey, token);
+
+                            console.log("JWT saved.");
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    },
+                },
+            },
+        ],
+    });
+
+    Scalar.createApiReference("#app", {
+        url: "/docs/openapi.json",
+
+        theme: "deepSpace",
+        layout: "modern",
+
+        // Hide MCP / Cursor code generation
+        hideClientButton: true,
+        defaultOpenFirstTag: false,
+
+        persistAuth: true,
+
+        plugins: [
+            JwtPlugin(),
+        ],
+    });
+</script>
+</body>
+</html>

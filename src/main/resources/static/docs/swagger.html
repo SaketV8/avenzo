@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenAPI Documentation</title>
+
+
+<!--  <link rel="icon" type="image/png" href="https://swagger.io/swagger/media/assets/favicon-32x32.png">-->
+  <link rel="icon" type="image/png" href="https://swagger.io/swagger_fav.png">
+
+  <link rel="stylesheet"
+        href="https://unpkg.com/swagger-ui-dist/swagger-ui.css" />
+</head>
+<body>
+
+<div id="swagger-ui"></div>
+
+<script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+<script src="https://unpkg.com/swagger-ui-dist/swagger-ui-standalone-preset.js"></script>
+
+<script>
+  window.onload = () => {
+    const ui = SwaggerUIBundle({
+      url: "/docs/openapi.json",
+
+      dom_id: "#swagger-ui",
+
+      layout: "StandaloneLayout",
+
+      deepLinking: true,
+
+      persistAuthorization: true,
+
+      displayRequestDuration: true,
+
+      tryItOutEnabled: true,
+
+      docExpansion: "list",
+
+      defaultModelsExpandDepth: 1,
+
+      defaultModelExpandDepth: 1,
+
+      filter: true,
+
+      presets: [
+        SwaggerUIBundle.presets.apis,
+        SwaggerUIStandalonePreset
+      ],
+
+      /////////////////////////////////////////////////////////////
+      /////////////////////////////////////////////////////////////
+      requestInterceptor: (request) => {
+        const token = localStorage.getItem("jwt");
+
+        if (token) {
+          request.headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        return request;
+      },
+
+      responseInterceptor: (response) => {
+        console.log("Interceptor activated :)")
+        try {
+          // Check if this was the login endpoint
+          if (response.url.endsWith("/api/v1/auth/login")) {
+
+            const body = JSON.parse(response.text);
+
+            if (body.jwt) {
+              localStorage.setItem("jwt", body.jwt);
+              console.log("JWT stored successfully!");
+              ui.preauthorizeApiKey("bearerAuth", body.jwt);
+              console.log("JWT added to Swagger UI successfully!");
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+
+        return response;
+      },
+
+      onComplete: () => {
+
+        // on page refresh
+        const token = localStorage.getItem("jwt");
+
+        if (token) {
+          ui.preauthorizeApiKey("bearerAuth", token);
+          console.log("JWT restored into Swagger UI");
+        }
+      },
+      /////////////////////////////////////////////////////////////
+      /////////////////////////////////////////////////////////////
+
+    });
+  };
+</script>
+
+</body>
+</html>
