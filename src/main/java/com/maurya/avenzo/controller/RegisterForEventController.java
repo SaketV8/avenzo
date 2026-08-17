@@ -42,6 +42,12 @@ public class RegisterForEventController {
         return  ResponseEntity.ok(registerForEventService.getUserRegisteredEvents());
     }
 
+    // registration status for current user
+    @GetMapping(events_base + "/{eventId}/register/me")
+    public ResponseEntity<RegisterForEventResponseDto> getMyRegistration(@PathVariable Long eventId) {
+        return ResponseEntity.ok(registerForEventService.getMyRegistrationForEvent(eventId));
+    }
+
     // get all registration
     @GetMapping(events_base + "/{eventId}" + register_base)
     public ResponseEntity<List<RegisterForEventResponseDto>> getEventRegistrations(@PathVariable Long eventId){

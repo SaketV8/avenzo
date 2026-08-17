@@ -36,9 +36,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
 
+
         return path.startsWith("/docs/")
                 || path.startsWith("/api/v1/auth/login")
-                || path.startsWith("/api/v1/auth/register");
+                || path.startsWith("/api/v1/auth/register")
+//                || path.startsWith("/api/v1/events")
+                || path.startsWith("/api/v1/auth/refresh");
     }
 
     @Override
@@ -52,6 +55,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (header == null || !header.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
+//            writeError(response, ErrorCode.INVALID_TOKEN);
             return;
         }
 
@@ -78,6 +82,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // saving the auth in the spring security
             SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            // Only continue if auth succeeded
+//            filterChain.doFilter(request, response);
         } catch (RuntimeException e) {
             /*response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);*/
             /*new ApiException(ErrorCode.INTERNAL_SERVER_ERROR);*/
@@ -94,7 +101,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
                     """);
             */
-
+            /*
             ErrorCode error = ErrorCode.INVALID_TOKEN;
             ErrorResponseDto errorResponseDto = ErrorResponseDto.builder()
                     .code(error.name())
@@ -107,9 +114,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             objectMapper.writeValue(response.getWriter(), errorResponseDto);
             return;
+            */
+            SecurityContextHolder.clearContext();
+            writeError(response, ErrorCode.INVALID_TOKEN);
         }
 
         // pass the request to next filter
         filterChain.doFilter(request, response);
+    }
+
+    // helper function :)
+    private void writeError(HttpServletResponse response, ErrorCode errorCode) throws IOException {
+        ErrorResponseDto errorResponse = ErrorResponseDto.builder()
+                .code(errorCode.name())
+                .message(errorCode.getMessage())
+                .status(errorCode.getStatus().value())
+                .build();
+
+        response.setStatus(errorCode.getStatus().value());
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        objectMapper.writeValue(response.getWriter(), errorResponse);
     }
 }

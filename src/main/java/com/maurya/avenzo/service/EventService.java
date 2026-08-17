@@ -102,7 +102,8 @@ public class EventService {
     }
 
     public List<EventResponseDto> getAllEvents() {
-        List<EventEntity> events = eventRepository.findAll();
+//        List<EventEntity> events = eventRepository.findAll();
+        List<EventEntity> events = eventRepository.findAllByStatus(EventStatus.PUBLISHED);
         List<EventResponseDto> eventResponseDtoList = new ArrayList<>();
 
         for (EventEntity event : events) {
@@ -220,6 +221,27 @@ public class EventService {
         event.setStatus(EventStatus.CANCELLED);
 
         EventEntity updatedEvent = eventRepository.save(event);
+
+        /*eventRepository.delete(event);*/
         return eventMapper.toEventResponseDto(updatedEvent);
+    }
+
+    public List<EventResponseDto> getAllEventByOwner() {
+        //get the current user details
+        CustomUserDetails userDetails = (CustomUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        UserEntity user = userDetails.getUserEntity();
+
+        List<EventMemberEntity> eventMemberEntityList = eventMemberRepository.findAllByUserIdAndRole(user.getId(), EventMemberRole.OWNER);
+
+        List<EventResponseDto> eventResponseDtoList = new ArrayList<>();
+        for (EventMemberEntity eventMemberEntity : eventMemberEntityList) {
+            eventResponseDtoList.add(
+                    eventMapper.toEventResponseDto(
+                            eventMemberEntity.getEvent()
+                    )
+            );
+        }
+
+        return eventResponseDtoList;
     }
 }

@@ -8,6 +8,8 @@ import com.maurya.avenzo.dto.response.RegisterUserResponseDto;
 import com.maurya.avenzo.dto.response.PrivateUserResponseDto;
 import com.maurya.avenzo.service.AuthService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -26,8 +28,28 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginUserResponseDto> loginUser(@Valid @RequestBody LoginUserRequestDto loginUserRequestDto) {
-        return ResponseEntity.status(HttpStatus.OK).body(authService.loginUser(loginUserRequestDto));
+    public ResponseEntity<LoginUserResponseDto> loginUser(@Valid @RequestBody LoginUserRequestDto loginUserRequestDto, HttpServletResponse response) {
+        return ResponseEntity.status(HttpStatus.OK).body(authService.loginUser(loginUserRequestDto, response));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginUserResponseDto> refreshToken(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        return ResponseEntity.ok(
+                authService.refreshToken(request, response)
+        );
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        authService.logout(request, response);
+
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me")

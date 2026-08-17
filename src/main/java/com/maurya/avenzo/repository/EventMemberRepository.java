@@ -32,4 +32,6 @@ public interface EventMemberRepository extends JpaRepository<EventMemberEntity, 
     boolean existsByEventIdAndUserId(Long eventId, Long userId);
 
     Long countByEventIdAndRole(Long eventId, EventMemberRole role);
+
+    List<EventMemberEntity> findAllByUserIdAndRole(Long userId, EventMemberRole role);
 }

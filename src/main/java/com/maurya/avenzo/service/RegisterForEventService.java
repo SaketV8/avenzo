@@ -19,10 +19,11 @@ import com.maurya.avenzo.repository.EventRespository;
 import com.maurya.avenzo.repository.RegisterForEventRepository;
 import com.maurya.avenzo.repository.UserRepository;
 import com.maurya.avenzo.security.CustomUserDetails;
-import jakarta.transaction.Transactional;
+//import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -109,6 +110,17 @@ public class RegisterForEventService {
         return eventResponseDtoList;
     }
 
+    @Transactional(readOnly = true)
+    public RegisterForEventResponseDto getMyRegistrationForEvent(Long eventId) {
+        CustomUserDetails userDetails = (CustomUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        UserEntity user = userDetails.getUserEntity();
+
+        RegistrationEntity registrationEntity = registerForEventRepository.findByUserIdAndEventId(user.getId(), eventId)
+                .orElseThrow(() -> new ApiException(ErrorCode.REGISTRATION_NOT_FOUND));
+
+        return registorForEventMapper.toRegisterForEventDto(registrationEntity);
+    }
+
     @Transactional
     public RegisterForEventResponseDto deregisterForEvent(Long eventId) {
         //get the current user details
@@ -134,14 +146,15 @@ public class RegisterForEventService {
 
     @Transactional
     public List<RegisterForEventResponseDto> getEventRegistrations(Long eventId) {
+        System.out.println("🐸🐸 get registration list");
         // only owner of this event can see the list or admin
         CustomUserDetails userDetails = (CustomUserDetails) Objects.requireNonNull(SecurityContextHolder.getContext().getAuthentication()).getPrincipal();
         UserEntity user = Objects.requireNonNull(userDetails).getUserEntity();
 
         // check if this user has owner role
         if (!eventMemberRepository.existsByEventIdAndUserIdAndRole(
-                user.getId(),
                 eventId,
+                user.getId(),
                 EventMemberRole.OWNER)) {
             throw new ApiException(ErrorCode.ACCESS_DENIED);
         }

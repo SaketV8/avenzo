@@ -5,12 +5,17 @@ import com.maurya.avenzo.dto.request.RegisterUserRequestDto;
 import com.maurya.avenzo.dto.response.LoginUserResponseDto;
 import com.maurya.avenzo.dto.response.PrivateUserResponseDto;
 import com.maurya.avenzo.dto.response.RegisterUserResponseDto;
+import com.maurya.avenzo.entity.SessionEntity;
 import com.maurya.avenzo.entity.UserEntity;
 import com.maurya.avenzo.exception.ApiException;
 import com.maurya.avenzo.exception.ErrorCode;
+import com.maurya.avenzo.repository.SessionRepository;
 import com.maurya.avenzo.repository.UserRepository;
 import com.maurya.avenzo.security.CustomUserDetails;
 import com.maurya.avenzo.security.JwtService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,13 +24,16 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +42,24 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+
+    private final SessionRepository sessionRepository;
+
+    private String hash(String token) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(token.getBytes(StandardCharsets.UTF_8));
+
+            StringBuilder hex = new StringBuilder();
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @Transactional
     public RegisterUserResponseDto registerUser(RegisterUserRequestDto registerUserRequestDto) {
@@ -58,7 +84,7 @@ public class AuthService {
 
     }
 
-    public LoginUserResponseDto loginUser(LoginUserRequestDto loginUserRequestDto) {
+    public LoginUserResponseDto loginUser(LoginUserRequestDto loginUserRequestDto, HttpServletResponse response) {
         try {
 
             Authentication authentication = authenticationManager.authenticate(
@@ -67,18 +93,131 @@ public class AuthService {
 
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
-            // JWT Token
-            String JwtToken = jwtService.generateToken(Objects.requireNonNull(userDetails));
+            UserEntity user = Objects.requireNonNull(userDetails).getUserEntity();
 
-            return new LoginUserResponseDto(JwtToken);
+            // Access Token (JWT Token)
+            String accessToken = jwtService.generateToken(Objects.requireNonNull(userDetails));
+
+            // Random Refresh Token
+            String refreshToken = UUID.randomUUID().toString();
+
+            // Save Session
+            SessionEntity session = new SessionEntity();
+            session.setUser(user);
+            session.setRefreshTokenHash(hash(refreshToken));
+            session.setExpiresAt(LocalDateTime.now().plusDays(30));
+
+            sessionRepository.save(session);
+
+            // Cookie
+            Cookie cookie = new Cookie("refreshToken", refreshToken);
+            cookie.setHttpOnly(true);
+//            cookie.setSecure(true); // false for local http
+            cookie.setSecure(false);
+            cookie.setPath("/");
+//            cookie.setPath("/api/v1/auth/refresh");
+            cookie.setMaxAge(60 * 60 * 24 * 30);
+
+            response.addCookie(cookie);
+
+            return new LoginUserResponseDto(accessToken);
         } catch (UsernameNotFoundException ex) {
-            /*throw new UsernameNotFoundException("User does not exist");*/
             throw new ApiException(ErrorCode.USER_NOT_FOUND);
         } catch (BadCredentialsException ex) {
-            /*throw new InvalidCredentialsExcepti("Invalid email or password");*/
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         }
 
+    }
+
+    public LoginUserResponseDto refreshToken(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        String refreshToken = null;
+
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("refreshToken".equals(cookie.getName())) {
+                    refreshToken = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (refreshToken == null) {
+            System.out.println("🐸🐸 Refresh failed: refreshToken cookie not found.");
+            throw new ApiException(ErrorCode.INVALID_TOKEN);
+        }
+
+        SessionEntity session = sessionRepository
+                .findByRefreshTokenHash(hash(refreshToken))
+                .orElseThrow(() -> {
+                    System.out.println("🐸🐸 Refresh failed: no session found for refresh token.");
+                    return new ApiException(ErrorCode.INVALID_TOKEN);
+                });
+
+        if (session.isRevoked() ||
+                session.getExpiresAt().isBefore(LocalDateTime.now())) {
+            System.out.println("🐸🐸  Refresh failed: session is revoked. Session ID = " + session.getId());
+            throw new ApiException(ErrorCode.INVALID_TOKEN);
+        }
+
+        // Rotate Refresh Token
+        String newRefreshToken = UUID.randomUUID().toString();
+
+        session.setRefreshTokenHash(hash(newRefreshToken));
+        session.setExpiresAt(LocalDateTime.now().plusDays(30));
+
+        sessionRepository.save(session);
+
+        Cookie cookie = new Cookie("refreshToken", newRefreshToken);
+        cookie.setHttpOnly(true);
+//        cookie.setSecure(true);
+        cookie.setSecure(false);
+//        cookie.setPath("/api/v1/auth/refresh");
+        cookie.setPath("/");
+        cookie.setMaxAge(60 * 60 * 24 * 30);
+
+        response.addCookie(cookie);
+
+        CustomUserDetails userDetails =
+                new CustomUserDetails(session.getUser());
+
+        String accessToken = jwtService.generateToken(userDetails);
+
+        System.out.println("🐸🐸 /refresh - accessToken: " + accessToken);
+
+        return new LoginUserResponseDto(accessToken);
+    }
+
+    public void logout(HttpServletRequest request,
+                       HttpServletResponse response) {
+
+        String refreshToken = null;
+
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("refreshToken".equals(cookie.getName())) {
+                    refreshToken = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (refreshToken != null) {
+            sessionRepository.findByRefreshTokenHash(hash(refreshToken))
+                    .ifPresent(sessionRepository::delete);
+        }
+
+        Cookie cookie = new Cookie("refreshToken", "");
+        cookie.setHttpOnly(true);
+//        cookie.setSecure(true);
+        cookie.setSecure(false);
+//        cookie.setPath("/api/v1/auth/refresh");
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+
+        response.addCookie(cookie);
     }
 
     public PrivateUserResponseDto getCurrentUser() {
@@ -101,7 +240,8 @@ public class AuthService {
                 user.getName(),
                 user.getEmail(),
                 user.getPhone(),
-                user.getProfilePicture()
+                user.getProfilePicture(),
+                user.getRole()
         );
     }
 }

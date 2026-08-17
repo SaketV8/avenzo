@@ -27,6 +27,17 @@ services:
     depends_on:
       - postgres
 
+  pgconsole:
+    image: pgplex/pgconsole:latest
+    container_name: pgconsole-web
+    restart: "no"
+    ports:
+      - "127.0.0.1:9876:9876"
+    volumes:
+      - ./pgconsole.toml:/etc/pgconsole.toml:ro
+    depends_on:
+      - postgres
+
 volumes:
   postgres_data:
   pgadmin_data:

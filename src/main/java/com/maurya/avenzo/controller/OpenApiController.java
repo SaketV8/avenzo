@@ -12,8 +12,10 @@ public class OpenApiController {
         and that HTML page will contain the scalar config and other data
     */
 
-//    @GetMapping("/scalar")
+    /*
+    @GetMapping("/scalar")
     public String scalar() {
         return "redirect:/scalar.html";
     }
+    */
 }

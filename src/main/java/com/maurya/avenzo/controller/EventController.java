@@ -52,8 +52,11 @@ public class EventController {
         return ResponseEntity.status(HttpStatus.OK).body(eventService.deleteEvent(eventId));
     }
 
-    /*
-    * event member controller
-    */
+    // get all events managed by current user
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping(events_base + "/manage" + "/me")
+    public ResponseEntity<List<EventResponseDto>> getEventByOwner() {
+        return ResponseEntity.status(HttpStatus.OK).body(eventService.getAllEventByOwner());
+    }
 
 }

@@ -113,6 +113,11 @@ public class EventMemberService {
         UserEntity userEntity = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
+        // requested userId and logged in user is same
+        // then denied the request
+        if(userEntity.getId().equals(user.getId())) {
+            throw new ApiException(ErrorCode.ACCESS_DENIED);
+        }
         // check if user exist with eventId
         EventEntity eventEntity = eventRespository.findById(eventId)
                 .orElseThrow(() -> new ApiException(ErrorCode.EVENT_NOT_FOUND));
@@ -154,6 +159,11 @@ public class EventMemberService {
 
         // TODO:
         // check if current is owner then we cannot change its role, as owner is highest role
+
+        // if current user is owner then cannot change back to volunteer
+        if(eventMemberEntity.getRole().equals(EventMemberRole.OWNER) && userEntity.getId().equals(user.getId())) {
+            throw new ApiException(ErrorCode.ACCESS_DENIED);
+        }
 
         /*eventMemberEntity.setRole(EventMemberRole.ORGANIZER);*/
         eventMemberEntity.setRole(eventMemberRequestDto.getRole());

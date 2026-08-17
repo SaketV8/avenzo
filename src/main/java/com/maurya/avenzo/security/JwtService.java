@@ -23,7 +23,11 @@ public class JwtService {
     public String generateToken(CustomUserDetails userDetails) {
 
         return Jwts.builder()
-                .setSubject(userDetails.getUsername())
+                .subject(userDetails.getUsername())
+
+                // deprecated
+                /*.setSubject(userDetails.getUsername())*/
+
                 /* .claim("role", userDetails.getUserEntity().getRole()) */
                 /* no need of role in the jwt token, as we are getting role from the db */
                 .issuedAt(new Date())

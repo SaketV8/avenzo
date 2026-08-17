@@ -1,0 +1,8 @@
+[[connections]]
+id = "local"
+name = "Local PostgreSQL"
+host = "postgres"          # service name inside Docker network
+port = 5432
+database = "my_postgres_db"
+username = "admin"
+password = "p_admin"
