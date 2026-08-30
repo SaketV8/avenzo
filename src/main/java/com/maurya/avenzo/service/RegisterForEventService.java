@@ -21,6 +21,7 @@ import com.maurya.avenzo.repository.UserRepository;
 import com.maurya.avenzo.security.CustomUserDetails;
 //import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RegisterForEventService {
 
     private final RegisterForEventRepository registerForEventRepository;
@@ -146,7 +148,7 @@ public class RegisterForEventService {
 
     @Transactional
     public List<RegisterForEventResponseDto> getEventRegistrations(Long eventId) {
-        System.out.println("🐸🐸 get registration list");
+        log.info("🐸🐸 get registration list");
         // only owner of this event can see the list or admin
         CustomUserDetails userDetails = (CustomUserDetails) Objects.requireNonNull(SecurityContextHolder.getContext().getAuthentication()).getPrincipal();
         UserEntity user = Objects.requireNonNull(userDetails).getUserEntity();
@@ -173,10 +175,11 @@ public class RegisterForEventService {
 
     @Transactional
     public RegisterForEventResponseDto checkInForEvent(Long eventId, EventCheckInRequestDto eventCheckInRequestDto) {
-        System.out.println("🍃🍃 Checkin Service Started");
+        log.info("🍃🍃 Checking Service Started");
         //get the current user details
         CustomUserDetails userDetails = (CustomUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        UserEntity user = userDetails.getUserEntity();
+//        UserEntity user = userDetails.getUserEntity();
+        UserEntity user = Objects.requireNonNull(userDetails).getUserEntity();
 
         // check role for current owner
         if (!eventMemberRepository.existsByEventIdAndUserIdAndRoleIn(
@@ -196,7 +199,7 @@ public class RegisterForEventService {
             throw new ApiException(ErrorCode.ACCESS_DENIED);
         }*/
 
-        System.out.println("🍃🍃 Verification Done in checkin");
+        log.info("🍃🍃 Verification Done in checkin");
 
         // get the event
         EventEntity event = eventRespository.findById(eventId)

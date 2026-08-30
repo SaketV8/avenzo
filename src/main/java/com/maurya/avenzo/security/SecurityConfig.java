@@ -4,6 +4,7 @@ import com.maurya.avenzo.dto.response.exception.ErrorResponseDto;
 import com.maurya.avenzo.exception.ErrorCode;
 import com.maurya.avenzo.filter.JwtAuthenticationFilter;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -23,13 +24,13 @@ import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @AllArgsConstructor
+@Slf4j
 public class SecurityConfig {
 
     private final ObjectMapper objectMapper;
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
-
 
         http
                 // disable CSRF
@@ -75,7 +76,7 @@ public class SecurityConfig {
                             response.setStatus(error.getStatus().value());
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-                            System.out.println("🍃🍃 NOT_AUTHENTICATED");
+                            log.error("Error: 🍃🍃 NOT_AUTHENTICATED");
 
                             objectMapper.writeValue(response.getWriter(), body);
                         })
@@ -96,7 +97,7 @@ public class SecurityConfig {
                             response.setStatus(error.getStatus().value());
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-                            System.out.println("🍃🍃 AUTHENTICATED_BUT_NO_PERMISSION");
+                            log.error("Error: 🍃🍃 AUTHENTICATED_BUT_NO_PERMISSION");
 
                             objectMapper.writeValue(response.getWriter(), body);
                         })

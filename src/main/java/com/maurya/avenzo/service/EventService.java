@@ -18,6 +18,7 @@ import com.maurya.avenzo.security.CustomUserDetails;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +28,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EventService {
 
     private final CategoryRepository categoryRepository;
@@ -41,7 +43,7 @@ public class EventService {
 
         UserEntity user = userDetails.getUserEntity();
 
-        System.out.println("🐸 Email: " + user.getEmail());
+        log.info("🐸 Email: {}", user.getEmail());
 
         // Fetch category
         CategoryEntity category = categoryRepository.findById(eventRequestDto.getCategoryId())

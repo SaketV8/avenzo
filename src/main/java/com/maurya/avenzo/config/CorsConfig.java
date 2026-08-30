@@ -17,7 +17,8 @@ public class CorsConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(List.of(
-                "http://localhost:3000"
+                "http://localhost:3000",
+                "https://avenzo.localhost"
         ));
 
         configuration.setAllowedMethods(List.of(

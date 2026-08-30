@@ -50,8 +50,11 @@ public class CustomUserDetails implements UserDetails {
         return userEntity.getEmail();
     }
 
+    // already due to @getter
+    /*
     public UserEntity getUserEntity() {
         return userEntity;
     }
+    */
 
 }

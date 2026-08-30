@@ -18,7 +18,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -37,6 +39,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -44,6 +47,42 @@ public class AuthService {
     private final JwtService jwtService;
 
     private final SessionRepository sessionRepository;
+
+    /*
+    private void setCookie(
+            HttpServletResponse response,
+            String name,
+            String value,
+            int maxAge
+    ) {
+        Cookie cookie = new Cookie(name, value);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true); // false for local http
+        cookie.setPath("/");
+        cookie.setMaxAge(maxAge);
+
+        response.addCookie(cookie);
+    }
+    */
+
+    private void setCookie(
+            HttpServletResponse response,
+            String name,
+            String value,
+            long maxAge
+    ) {
+        ResponseCookie cookie = ResponseCookie.from(name, value)
+                .httpOnly(true)
+                .secure(true) // false for local http
+//                .sameSite("Lax")
+                .sameSite("None")
+                .path("/")
+//                .domain(".avenzo.localhost")
+                .maxAge(maxAge)
+                .build();
+
+        response.addHeader("Set-Cookie", cookie.toString());
+    }
 
     private String hash(String token) {
         try {
@@ -63,25 +102,27 @@ public class AuthService {
 
     @Transactional
     public RegisterUserResponseDto registerUser(RegisterUserRequestDto registerUserRequestDto) {
-
-        UserEntity user = new UserEntity();
-        user.setName(registerUserRequestDto.getName());
-        user.setEmail(registerUserRequestDto.getEmail());
-        user.setPassword(passwordEncoder.encode(registerUserRequestDto.getPassword()));
-        user.setPhone(registerUserRequestDto.getPhone());
-        user.setProfilePicture(registerUserRequestDto.getProfilePicture());
-
-        /*UserEntity registeredUser = userRepository.save(user);*/
-
+        log.info("Started Registering User: {}", registerUserRequestDto.getName());
         try {
+            UserEntity user = new UserEntity();
+            user.setName(registerUserRequestDto.getName());
+            user.setEmail(registerUserRequestDto.getEmail());
+            user.setPassword(passwordEncoder.encode(registerUserRequestDto.getPassword()));
+            user.setPhone(registerUserRequestDto.getPhone());
+            user.setProfilePicture(registerUserRequestDto.getProfilePicture());
             UserEntity registeredUser = userRepository.save(user);
-            return new RegisterUserResponseDto(registeredUser.getId(), registeredUser.getName(), registeredUser.getEmail());
+
+            RegisterUserResponseDto response = new RegisterUserResponseDto(registeredUser.getId(), registeredUser.getName(), registeredUser.getEmail());
+
+            log.info("Successfully Registered User: {}", registerUserRequestDto.getName());
+
+            return response;
         } catch (DataIntegrityViolationException ex) {
+            log.error("Failed to register user. Name: {}", registerUserRequestDto.getName(), ex);
             throw new ApiException(ErrorCode.USER_ALREADY_EXISTS);
+        } finally {
+            log.info("Completed Registering User request: {}", registerUserRequestDto.getName());
         }
-
-        /*return new RegisterUserResponseDto(registeredUser.getId(), registeredUser.getName(), registeredUser.getEmail());*/
-
     }
 
     public LoginUserResponseDto loginUser(LoginUserRequestDto loginUserRequestDto, HttpServletResponse response) {
@@ -110,15 +151,7 @@ public class AuthService {
             sessionRepository.save(session);
 
             // Cookie
-            Cookie cookie = new Cookie("refreshToken", refreshToken);
-            cookie.setHttpOnly(true);
-//            cookie.setSecure(true); // false for local http
-            cookie.setSecure(false);
-            cookie.setPath("/");
-//            cookie.setPath("/api/v1/auth/refresh");
-            cookie.setMaxAge(60 * 60 * 24 * 30);
-
-            response.addCookie(cookie);
+            setCookie(response, "refreshToken", refreshToken, 60 * 60 * 24 * 30);
 
             return new LoginUserResponseDto(accessToken);
         } catch (UsernameNotFoundException ex) {
@@ -145,20 +178,20 @@ public class AuthService {
         }
 
         if (refreshToken == null) {
-            System.out.println("🐸🐸 Refresh failed: refreshToken cookie not found.");
+            log.error("🐸🐸 Refresh failed: refreshToken cookie not found.");
             throw new ApiException(ErrorCode.INVALID_TOKEN);
         }
 
         SessionEntity session = sessionRepository
                 .findByRefreshTokenHash(hash(refreshToken))
                 .orElseThrow(() -> {
-                    System.out.println("🐸🐸 Refresh failed: no session found for refresh token.");
+                    log.error("🐸🐸 Refresh failed: no session found for refresh token.");
                     return new ApiException(ErrorCode.INVALID_TOKEN);
                 });
 
         if (session.isRevoked() ||
                 session.getExpiresAt().isBefore(LocalDateTime.now())) {
-            System.out.println("🐸🐸  Refresh failed: session is revoked. Session ID = " + session.getId());
+            log.error("🐸🐸  Refresh failed: session is revoked. Session ID = " + session.getId());
             throw new ApiException(ErrorCode.INVALID_TOKEN);
         }
 
@@ -170,22 +203,14 @@ public class AuthService {
 
         sessionRepository.save(session);
 
-        Cookie cookie = new Cookie("refreshToken", newRefreshToken);
-        cookie.setHttpOnly(true);
-//        cookie.setSecure(true);
-        cookie.setSecure(false);
-//        cookie.setPath("/api/v1/auth/refresh");
-        cookie.setPath("/");
-        cookie.setMaxAge(60 * 60 * 24 * 30);
-
-        response.addCookie(cookie);
+        setCookie(response, "refreshToken", newRefreshToken, 60 * 60 * 24 * 30);
 
         CustomUserDetails userDetails =
                 new CustomUserDetails(session.getUser());
 
         String accessToken = jwtService.generateToken(userDetails);
 
-        System.out.println("🐸🐸 /refresh - accessToken: " + accessToken);
+        log.info("🐸🐸 /refresh - accessToken: " + accessToken);
 
         return new LoginUserResponseDto(accessToken);
     }
@@ -209,31 +234,23 @@ public class AuthService {
                     .ifPresent(sessionRepository::delete);
         }
 
-        Cookie cookie = new Cookie("refreshToken", "");
-        cookie.setHttpOnly(true);
-//        cookie.setSecure(true);
-        cookie.setSecure(false);
-//        cookie.setPath("/api/v1/auth/refresh");
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-
-        response.addCookie(cookie);
+        setCookie(response, "refreshToken", "", 0);
     }
 
     public PrivateUserResponseDto getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         // this authentication is returning the UserDetails and in our CustomUserDetails Implementation
-        // we have added the the method getName(), which will eventually return the Email
+        // we have added the method getName(), which will eventually return the Email
         /*String email = Objects.requireNonNull(authentication).getName();*/
 
         /*UserDetails userDetails = (UserDetails) Objects.requireNonNull(authentication).getPrincipal();*/
 
         // NOTE:
-        // to avoid the user query for this scenerio, we can directly access the whole UserEntity
+        // to avoid the user query for this scenario, we can directly access the whole UserEntity
         CustomUserDetails userDetails = (CustomUserDetails) Objects.requireNonNull(authentication).getPrincipal();
 
-        UserEntity user = userDetails.getUserEntity();
+        UserEntity user = Objects.requireNonNull(userDetails).getUserEntity();
 
         return new PrivateUserResponseDto(
                 user.getId(),

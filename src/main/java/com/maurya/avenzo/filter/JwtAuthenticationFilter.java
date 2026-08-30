@@ -10,6 +10,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +24,7 @@ import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
@@ -50,10 +52,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        System.out.println("🐸 JWT filter started");
+        log.info("🌸 JWT filter started");
         String header = request.getHeader("Authorization");
 
         if (header == null || !header.startsWith("Bearer ")) {
+            log.info("🌸 header in null or Bearer header not found");
+
             filterChain.doFilter(request, response);
 //            writeError(response, ErrorCode.INVALID_TOKEN);
             return;
@@ -77,8 +81,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             );
 
             // logging the all role -> permission after mapping
-            System.out.print("🐸 PERMISSION: ");
-            System.out.println(userDetails.getAuthorities());
+            log.info("🌸 PERMISSION: {}", userDetails.getAuthorities());
 
             // saving the auth in the spring security
             SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -117,6 +120,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             */
             SecurityContextHolder.clearContext();
             writeError(response, ErrorCode.INVALID_TOKEN);
+            log.error("🌸 Error: {}", e.getMessage());
         }
 
         // pass the request to next filter
