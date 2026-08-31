@@ -1,12 +1,12 @@
 package com.maurya.avenzo.security;
 
 import com.maurya.avenzo.entity.UserEntity;
-import com.maurya.avenzo.exception.ApiException;
-import com.maurya.avenzo.exception.ErrorCode;
+//import com.maurya.avenzo.exception.ApiException;
+//import com.maurya.avenzo.exception.ErrorCode;
 import com.maurya.avenzo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.userdetails.User;
+//import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

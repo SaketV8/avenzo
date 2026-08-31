@@ -12,9 +12,15 @@ public class AvenzoApplication implements CommandLineRunner {
 	// run method execute when all context of the application loaded
 	@Override
 	public void run(String... args) throws Exception {
+		System.out.println();
+		System.out.println();
 		System.out.println("=======================================");
-		log.info("🌸🌸 Let's Go 🌸🌸");
+		System.out.println("🌸🌸 Let's Go 🌸🌸");
 		System.out.println("=======================================");
+		System.out.println();
+		System.out.println();
+
+		log.info("🐸 Application successfully started");
 	}
 
 

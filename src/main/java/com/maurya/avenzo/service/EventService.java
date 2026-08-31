@@ -71,7 +71,7 @@ public class EventService {
 
         EventEntity savedEvent = eventRepository.save(event);
 
-        // current user a owner for this event
+        // current user an owner for this event
         EventMemberEntity eventMemberEntity = new EventMemberEntity();
         eventMemberEntity.setEvent(savedEvent);
         eventMemberEntity.setUser(user);
